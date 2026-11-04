@@ -20,7 +20,7 @@ canvas{display:block;width:100%;height:100%}
 <script>
 (()=>{
 const cv=document.getElementById('c'),g=cv.getContext('2d'),tl=document.getElementById('tl'),bl=document.getElementById('bl');
-const RAMP=" .'`,:;-~+=*x#%@",RL=RAMP.length-1,TAU=Math.PI*2,TILT=.22,D=4;
+const RAMP=" .'`,:;-~+=*x#%@",RL=RAMP.length-1,TAU=Math.PI*2,TILT=.22,D=4,TB=5,TS=2.4;
 const LV=[];for(let i=0;i<=24;i++)LV.push(`rgba(232,236,244,${(i/24).toFixed(2)})`);
 let W,H,fs,cw,ch,cols,rows,U,N,Z,B,K,Rf,stars=[];
 
@@ -37,16 +37,16 @@ addEventListener('resize',resize);resize();
 
 /* ---------- geometry: [x,y,z,nx,ny,nz,kind] kind 0 band, 1 prong, 2 diamond, 3 orbit ---------- */
 const G=[];
-function add(x,y,z,nx,ny,nz,k){const l=Math.hypot(nx,ny,nz)||1;G.push(x,y,z,nx/l,ny/l,nz/l,k)}
+function add(x,y,z,nx,ny,nz,k,w){const l=Math.hypot(nx,ny,nz)||1;G.push(x,y,z,nx/l,ny/l,nz/l,k,w||0)}
 const A=.55,BH=.82,CY=-.12;
 for(let i=0;i<1000;i++){
   const t=i/1000*TAU,ct=Math.cos(t),st=Math.sin(t);
   let nx=ct/A,ny=st/BH;const l=Math.hypot(nx,ny);nx/=l;ny/=l;
-  const ex=A*ct,ey=BH*st+CY,th=.055+.02*Math.max(0,st);
+  const ex=A*ct,ey=BH*st+CY,th=.055+.02*Math.max(0,st),bw=.5*Math.abs(((t+Math.PI/2+Math.PI)%TAU)-Math.PI)/Math.PI;
   for(let j=0;j<30;j++){
     const p=j/30*TAU,cp=Math.cos(p),sp=Math.sin(p);
     const c2=Math.sign(cp)*Math.pow(Math.abs(cp),.75),s2=Math.sign(sp)*Math.pow(Math.abs(sp),.75);
-    add(ex+nx*th*c2,ey+ny*th*c2,.115*s2,nx*cp,ny*cp,sp*1.2,0);
+    add(ex+nx*th*c2,ey+ny*th*c2,.115*s2,nx*cp,ny*cp,sp*1.2,0,bw);
   }
 }
 for(let q=0;q<4;q++){
@@ -56,34 +56,34 @@ for(let q=0;q<4;q++){
     for(let m=0;m<8;m++){
       const a=m/8*TAU,ox=Math.cos(a)*.024,oy=Math.sin(a)*.024;
       const dx=cf*ox-sf*oy,dz=sf*ox+cf*oy;
-      add(cf*r+dx,y,sf*r+dz,dx,0,dz,1);
+      add(cf*r+dx,y,sf*r+dz,dx,0,dz,1,.5+.22*(u-.2)/.8);
     }
   }
 }
 const Y0=.70,YG=.93,YT=1.08,RG=.22,RT=.125,M=8,SEC=TAU/M;
 function facet(ang,rr,y,type){
   const fa=(Math.floor(ang/SEC)+.5)*SEC,rp=rr*Math.cos(SEC/2)/Math.cos(ang-fa),c=Math.cos(fa),s=Math.sin(fa);
-  type?add(Math.cos(ang)*rp,y,Math.sin(ang)*rp,c*.8,-.6,s*.8,2):add(Math.cos(ang)*rp,y,Math.sin(ang)*rp,c*.62,.78,s*.62,2);
+  const w=.72+.28*(y-Y0)/(YT-Y0);type?add(Math.cos(ang)*rp,y,Math.sin(ang)*rp,c*.8,-.6,s*.8,2,w):add(Math.cos(ang)*rp,y,Math.sin(ang)*rp,c*.62,.78,s*.62,2,w);
 }
 for(let ai=0;ai<240;ai++){
   const ang=(ai+.5)/240*TAU;
   for(let h=0;h<=16;h++){const u=h/16;facet(ang,RT+(RG-RT)*u,YT-(YT-YG)*u,0)}
   for(let h=0;h<=22;h++){const u=h/22;facet(ang,RG*(1-u),YG-(YG-Y0)*u,1)}
 }
-for(let r=0;r<14;r++)for(let a=0;a<80;a++){const rr=RT*r/13,aa=a/80*TAU;add(Math.cos(aa)*rr,YT,Math.sin(aa)*rr,0,1,0,2)}
+for(let r=0;r<14;r++)for(let a=0;a<80;a++){const rr=RT*r/13,aa=a/80*TAU;add(Math.cos(aa)*rr,YT,Math.sin(aa)*rr,0,1,0,2,1)}
 for(let o=0;o<2;o++)for(let i=0;i<260;i++){
   const a=i/260*TAU,s=o?-1:1,r=1.15+Math.random()*.03,th=s*.6;
   const x=r*Math.cos(a),y=.35*r*Math.sin(a);
   add(x*Math.cos(th)-y*Math.sin(th),x*Math.sin(th)+y*Math.cos(th)+.2,.6*s*Math.sin(a),0,0,0,3);
 }
-const P=new Float32Array(G),NP=P.length/7;
+const P=new Float32Array(G),NP=P.length/8;
 
 /* ---------- lighting ---------- */
 const LL=Math.hypot(-.45,.65,.62),Lx=-.45/LL,Ly=.65/LL,Lz=.62/LL;
 const Hl=Math.hypot(Lx,Ly,Lz+1),Hx=Lx/Hl,Hy=Ly/Hl,Hz=(Lz+1)/Hl;
 
 /* ---------- sparkles ---------- */
-const glints=[];let glintTotal=0,letters=0;
+let ts=0;const glints=[];let glintTotal=0,letters=0;
 function put(c,r,sym,a){
   if(c<0||r<0||c>=cols||r>=rows||a<=.04)return;
   g.fillStyle=LV[Math.min(24,a*24|0)];g.fillText(sym,c*cw,r*ch);letters++;
@@ -100,23 +100,29 @@ function star(c,r,len,a,thin){
 
 /* ---------- loop ---------- */
 const t0=performance.now();
+addEventListener('pointerdown',()=>{ts=(performance.now()-t0)/1000});
 function frame(now){
   if(innerWidth!==W||innerHeight!==H)resize();
   const t=(now-t0)/1000,rot=t*.36,cy=Math.cos(rot),sy=Math.sin(rot),cx=Math.cos(TILT),sx=Math.sin(TILT);
   g.fillStyle='#000';g.fillRect(0,0,W,H);letters=0;
+  /* zaman çizelgesi: lt=0 oluşum başlar, TB'de elmas biter ve şok dalgası çıkar, sonra sadece dönüş devam eder */
+  const lt=t-ts,pr=Math.min(1,lt/TB),p=lt<TB?.5-.5*Math.cos(Math.PI*pr):1.01;
+  const shockOn=lt>=TB&&lt<TB+TS,sp0=(lt-TB)/TS,shockF=shockOn?1-Math.pow(sp0,1.5):0;
+  const shockR=lt<TB?-1:shockOn?Math.pow(sp0,.75)*Math.hypot(W,H)*.6:1e9;
+  const sx0=W/2,sy0=H*.47-(cx-.08)*(D/(D-sx))*U;
   Z.fill(-1e9);B.fill(0);K.fill(0);Rf.fill(0);
   const l2x=Math.cos(t*1.7),l2z=Math.sin(t*1.3)+.6,l2l=Math.hypot(l2x,.7,l2z),L2x=l2x/l2l,L2y=.7/l2l,L2z=l2z/l2l;
   const l3x=Math.cos(t*.9+2),l3z=Math.sin(t*1.1+1)+.6,l3l=Math.hypot(l3x,.4,l3z),L3x=l3x/l3l,L3y=.4/l3l,L3z=l3z/l3l;
   const cand=[];
 
   for(let i=0;i<NP;i++){
-    const o=i*7,x=P[o],y=P[o+1],z=P[o+2],k=P[o+6];
+    const o=i*8,x=P[o],y=P[o+1],z=P[o+2],k=P[o+6],w=P[o+7];if(w>p)continue;
     const x1=x*cy+z*sy,z1=-x*sy+z*cy,y2=y*cx-z1*sx,z2=y*sx+z1*cx,s=D/(D-z2);
-    const c=(W/2+x1*s*U)/cw|0,r=(H*.47-(y2-.08)*s*U)/ch|0;
+    const px=W/2+x1*s*U,py=H*.47-(y2-.08)*s*U,c=px/cw|0,r=py/ch|0;
     if(c<0||c>=cols||r<0||r>=rows)continue;
     const idx=r*cols+c;if(z2<=Z[idx])continue;
     let v;
-    if(k===3){v=.2+.15*Math.sin(i*.7+t*3)}
+    if(k===3){if(lt<TB||Math.hypot(px-sx0,py-sy0)>shockR)continue;v=.2+.15*Math.sin(i*.7+t*3)}
     else{
       const nx=P[o+3],ny=P[o+4],nz=P[o+5],n1=nx*cy+nz*sy,m1=-nx*sy+nz*cy,n2y=ny*cx-m1*sx,n2z=ny*sx+m1*cx;
       if(n2z<-.15)continue;
@@ -124,13 +130,15 @@ function frame(now){
       if(k===2){
         const s2=Math.pow(Math.max(0,n1*L2x+n2y*L2y+n2z*L2z),14),s3=Math.pow(Math.max(0,n1*L3x+n2y*L3y+n2z*L3z),14);
         v=.4+.35*d+1.1*s2+.8*s3;
-        if(v>.95&&Math.random()<.012)cand.push(idx);
+        if(lt>=TB&&v>.95&&Math.random()<.012)cand.push(idx);
       }else{
         const sp=Math.pow(Math.max(0,n1*Hx+n2y*Hy+n2z*Hz),26),rim=Math.pow(1-Math.abs(n2z),3),env=.5+.5*Math.sin(n2y*5+n1*3+t*.8);
         v=.22+.5*d+.9*sp+.4*rim+.2*env;
-        if(v>.92&&Math.random()<.004)cand.push(idx);
+        if(lt>=TB&&v>.92&&Math.random()<.004)cand.push(idx);
       }
     }
+    if(shockOn){const bd=Math.abs(Math.hypot(px-sx0,py-sy0)-shockR);if(bd<U*.14)v+=(1-bd/(U*.14))*1.4*shockF}
+    if(p<1){const e=1-(p-w)/.05;if(e>0){v+=e*1.2;if(Math.random()<.12)cand.push(idx)}}
     Z[idx]=z2;B[idx]=v;K[idx]=k+1;
   }
 
@@ -143,7 +151,7 @@ function frame(now){
   }
 
   /* stars */
-  for(const s of stars){const a=.1+.25*(.5+.5*Math.sin(t*s[3]+s[2]));put(s[0],s[1],s[4],a)}
+  for(const s of stars){let a=.1+.25*(.5+.5*Math.sin(t*s[3]+s[2]));if(shockOn){const bd=Math.abs(Math.hypot(s[0]*cw-sx0,s[1]*ch-sy0)-shockR);if(bd<U*.15)a+=.7*shockF}put(s[0],s[1],s[4],a)}
 
   /* draw scene */
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
@@ -164,11 +172,16 @@ function frame(now){
     const q=glints[i],p=(t-q.b)/q.life;if(p>=1){glints.splice(i,1);continue}
     star(q.c,q.r,Math.max(1,q.len*Math.sin(p*Math.PI)|0),1-p*.6,true);
   }
+  /* şok dalgası */
+  if(shockOn){
+    for(let L=0;L<6;L++){const rad=shockR-L*cw*1.4;if(rad<=0)continue;const a=shockF*(1-L*.14),n=Math.min(1800,Math.ceil(TAU*rad/(cw*.7)));
+      for(let i=0;i<n;i++){const an=i/n*TAU;put((sx0+Math.cos(an)*rad)/cw|0,(sy0+Math.sin(an)*rad)/ch|0,'@#*+:.'[L],a)}}
+  }
   /* big crown flare */
   {
     const y2=YT*cx,z2=YT*sx,s=D/(D-z2),c=Math.floor(W/2/cw),r=Math.floor((H*.47-(y2-.08)*s*U)/ch);
     const pulse=.5+.5*Math.sin(t*2.6);
-    star(c,r-1,3+pulse*3|0,.6+.4*pulse,false);
+    if(lt>=TB-.1)star(c,r-1,(3+pulse*3+14*Math.max(0,1-(lt-TB)/.9))|0,.6+.4*pulse,false);
   }
 
   /* HUD */
